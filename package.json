@@ -1,0 +1,48 @@
+{
+  "name": "creatorops",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CreatorOps · 达人合作管理平台 — 聚猩智媒内部达人合作全流程业务系统",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "dev:api": "pnpm --filter @creatorops/api dev",
+    "dev:web": "pnpm --filter @creatorops/web dev",
+    "build": "pnpm --filter @creatorops/api build && pnpm --filter @creatorops/web build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @creatorops/api test:e2e",
+    "db:migrate": "node scripts/with-env.mjs pnpm --filter @creatorops/api run prisma:migrate",
+    "db:seed": "node scripts/with-env.mjs pnpm --filter @creatorops/api run prisma:seed",
+    "db:reset": "node scripts/with-env.mjs pnpm --filter @creatorops/api run prisma:reset",
+    "db:deploy": "node scripts/with-env.mjs pnpm --filter @creatorops/api run prisma:deploy",
+    "db:baseline": "node scripts/gen-migration-baseline.mjs",
+    "db:nuke": "node scripts/reset-database.mjs",
+    "db:doctor": "node scripts/db-doctor.mjs",
+    "db:resolve": "node scripts/resolve-failed-migrations.mjs",
+    "db:sync-models": "node scripts/sync-prompt-models.mjs --apply",
+    "openapi:export": "pnpm --filter @creatorops/api openapi:export",
+    "openapi:check": "node scripts/check-openapi-drift.mjs",
+    "enum:check": "node scripts/check-enum-drift.mjs",
+    "enum:selftest": "node scripts/check-enum-drift.mjs --self-test",
+    "contract:verify": "node scripts/check-enum-drift.mjs && pnpm openapi:export && pnpm openapi:check",
+    "verify": "node scripts/check-enum-drift.mjs && pnpm -r typecheck && pnpm -r test",
+    "db:setup": "node scripts/setup-database.mjs",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "semi": true,
+    "printWidth": 100,
+    "trailingComma": "all"
+  }
+}

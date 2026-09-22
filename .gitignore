@@ -1,0 +1,39 @@
+# 依赖
+node_modules/
+.pnpm-store/
+
+# 构建产物
+dist/
+build/
+*.tsbuildinfo
+
+# 环境变量（只提交 .env.example）
+.env
+.env.local
+.env.*.local
+
+# Prisma 生成的客户端（由 prisma generate 产出，不入库）
+.prisma/
+
+# 日志与临时文件
+*.log
+logs/
+.npm-cache/
+storage/
+coverage/
+
+# 一次性脚本/临时产物（约定以 .tmp- 开头，用完即删；即使忘了删也不会入库）
+.tmp-*
+*.tmp
+
+# 编辑器与系统
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# 测试报告
+coverage/
+test-results/
+playwright-report/

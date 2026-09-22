@@ -1,0 +1,4851 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/audit-logs": {
+      "get": {
+        "operationId": "AuditController_list",
+        "summary": "查询审计日志（支持按人/资源/动作/时间过滤）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "审计日志"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/audit-logs/{resource}/{id}/timeline": {
+      "get": {
+        "operationId": "AuditController_timeline",
+        "summary": "某条业务资源的完整操作记录（详情页操作记录）",
+        "parameters": [
+          {
+            "name": "resource",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "审计日志"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/tasks": {
+      "get": {
+        "operationId": "AiController_listTasks",
+        "summary": "AI 任务列表（可按类型/状态/达人/时间筛选）",
+        "parameters": [
+          {
+            "name": "taskType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "SCRIPT_GENERATE",
+                "TITLE_OPTIMIZE",
+                "CREATOR_MATCH",
+                "COMMENT_INSIGHT",
+                "COMPLIANCE_CHECK",
+                "SETTLEMENT_ANOMALY",
+                "DAILY_BRIEF"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "QUEUED",
+                "RUNNING",
+                "SUCCEEDED",
+                "FAILED",
+                "FALLBACK_USED",
+                "REJECTED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "creatorId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestedById",
+            "required": false,
+            "in": "query",
+            "description": "按发起人过滤",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "起始时间（ISO）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "结束时间（ISO）",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI 能力"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "AiController_createTask",
+        "summary": "发起 AI 任务",
+        "description": "按任务类型选择 Prompt 模板 → 渲染 → 预算校验 → 调用模型（失败自动降级）→ 结构化校验 → 落库成本与耗时。传 idempotencyKey 可防重复扣费。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAiTaskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI 能力"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/tasks/{id}": {
+      "get": {
+        "operationId": "AiController_getTask",
+        "summary": "AI 任务详情（含输入、输出、token、成本、耗时、降级原因）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI 能力"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/tasks/{id}/feedback": {
+      "post": {
+        "operationId": "AiController_feedback",
+        "summary": "提交 AI 结果反馈（采纳/拒绝）",
+        "description": "反馈用于统计采纳率并驱动 Prompt 迭代，是「AI 真的有用吗」的量化依据。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitFeedbackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI 能力"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/usage": {
+      "get": {
+        "operationId": "AiController_usage",
+        "summary": "AI 月度用量与成本",
+        "description": "返回预算占用、各任务类型调用量/成本/平均耗时、人工采纳率。",
+        "parameters": [
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI 能力"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/prompts": {
+      "get": {
+        "operationId": "AiController_listPrompts",
+        "summary": "Prompt 模板列表（含多版本）",
+        "parameters": [
+          {
+            "name": "key",
+            "required": false,
+            "in": "query",
+            "description": "按 key 精确过滤",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "description": "关键词：名称或 key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "isActive",
+            "required": false,
+            "in": "query",
+            "description": "是否启用",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI 能力"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "AiController_createPrompt",
+        "summary": "新建 Prompt 模板",
+        "description": "同一 key 再次创建会自动递增 version，形成可回滚的版本历史。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePromptTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI 能力"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/prompts/{id}": {
+      "get": {
+        "operationId": "AiController_getPrompt",
+        "summary": "Prompt 模板详情",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI 能力"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "AiController_updatePrompt",
+        "summary": "编辑 Prompt 模板",
+        "description": "已被任务使用过的模板禁止修改 Prompt 内容，必须新建版本，保证历史任务可追溯。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePromptTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI 能力"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/prompts/{id}/toggle": {
+      "post": {
+        "operationId": "AiController_togglePrompt",
+        "summary": "启用/停用 Prompt 模板（停用保留历史引用）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TogglePromptTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI 能力"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/ai/prompts/seed-defaults": {
+      "post": {
+        "operationId": "AiController_seedDefaults",
+        "summary": "补齐内置默认模板（幂等，已存在的 key 不会被覆盖）",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AI 能力"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "summary": "账号密码登录",
+        "description": "返回 access/refresh 令牌与当前用户权限集合。连续 5 次失败锁定账号 15 分钟。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "认证"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "summary": "刷新令牌",
+        "description": "refresh token 轮换：旧令牌立即失效，检测到重放会撤销整个会话族。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "认证"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "summary": "退出登录（撤销当前设备会话）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "认证"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/auth/profile": {
+      "get": {
+        "operationId": "AuthController_profile",
+        "summary": "获取当前登录用户信息与权限集合",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "认证"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/auth/password": {
+      "patch": {
+        "operationId": "AuthController_changePassword",
+        "summary": "修改密码",
+        "description": "校验原密码与强度后，撤销该用户全部会话，需重新登录。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "认证"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "HealthController_liveness",
+        "summary": "存活探针（不检查外部依赖）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "健康检查"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "HealthController_readiness",
+        "summary": "就绪探针（检查数据库连通性）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "健康检查"
+        ]
+      }
+    },
+    "/creators": {
+      "get": {
+        "operationId": "CreatorController_list",
+        "summary": "达人列表",
+        "description": "支持关键词（昵称/真名/手机号/编号/平台昵称）、状态、分级、垂类、平台、负责人、标签、粉丝区间多维筛选。数据范围：商务仅可见自己负责的达人。",
+        "parameters": [
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "description": "关键词：昵称/真实姓名/手机号/编号/平台昵称",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "LEAD",
+                  "CONTACTING",
+                  "EVALUATING",
+                  "SIGNED",
+                  "ACTIVE",
+                  "PAUSED",
+                  "TERMINATED",
+                  "BLACKLIST"
+                ]
+              }
+            }
+          },
+          {
+            "name": "tier",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "S",
+                  "A",
+                  "B",
+                  "C",
+                  "D"
+                ]
+              }
+            }
+          },
+          {
+            "name": "vertical",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "SHORT_DRAMA",
+                  "LIFESTYLE",
+                  "BEAUTY",
+                  "GAMING",
+                  "FOOD",
+                  "TECH",
+                  "KNOWLEDGE",
+                  "FASHION",
+                  "FITNESS",
+                  "OTHER"
+                ]
+              }
+            }
+          },
+          {
+            "name": "platform",
+            "required": false,
+            "in": "query",
+            "description": "按平台过滤（账号维度）",
+            "schema": {
+              "enum": [
+                "DOUYIN",
+                "XIAOHONGSHU",
+                "BILIBILI",
+                "WECHAT_CHANNEL",
+                "KUAISHOU",
+                "WEIBO",
+                "TIKTOK",
+                "YOUTUBE",
+                "INSTAGRAM"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "ownerId",
+            "required": false,
+            "in": "query",
+            "description": "负责人 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tagId",
+            "required": false,
+            "in": "query",
+            "description": "标签 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "minFollowers",
+            "required": false,
+            "in": "query",
+            "description": "最低粉丝数（取该达人最高粉丝账号）",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "maxFollowers",
+            "required": false,
+            "in": "query",
+            "description": "最高粉丝数",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "minScore",
+            "required": false,
+            "in": "query",
+            "description": "最低评估分",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "sourceChannel",
+            "required": false,
+            "in": "query",
+            "description": "招募渠道",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "达人管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "CreatorController_create",
+        "summary": "新建达人（可同时录入平台账号）",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCreatorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "达人管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/creators/{id}": {
+      "get": {
+        "operationId": "CreatorController_detail",
+        "summary": "达人详情（含账号矩阵、业务统计、状态机可选动作）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "达人管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "CreatorController_update",
+        "summary": "编辑达人资料（状态变更请用 /status 接口）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCreatorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "达人管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "CreatorController_remove",
+        "summary": "删除达人",
+        "description": "软删除；若已关联合同/内容/结算则拒绝，保证业务链路完整。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "达人管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/creators/batch-import": {
+      "post": {
+        "operationId": "CreatorController_batchImport",
+        "summary": "批量导入达人",
+        "description": "部分成功语义：返回成功条数与逐条失败原因，便于修正后重试。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchImportCreatorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "达人管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/creators/{id}/status": {
+      "patch": {
+        "operationId": "CreatorController_changeStatus",
+        "summary": "变更达人合作状态",
+        "description": "按状态机校验流转合法性；解约/拉黑等高风险流转必须填写 reason，并写入备注与审计日志。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeCreatorStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "达人管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/creators/{id}/evaluate": {
+      "post": {
+        "operationId": "CreatorController_evaluate",
+        "summary": "达人综合评估",
+        "description": "四维度加权（内容30%/商务30%/配合20%/数据20%）计算综合分并写回。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluateCreatorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "达人管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/creators/{id}/assign": {
+      "post": {
+        "operationId": "CreatorController_assign",
+        "summary": "分配/交接负责人",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignCreatorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "达人管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tags": {
+      "get": {
+        "operationId": "TagController_list",
+        "summary": "标签列表（含使用量统计）",
+        "parameters": [
+          {
+            "name": "category",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "标签"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "TagController_create",
+        "summary": "新建标签",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTagDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "标签"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tags/{id}": {
+      "patch": {
+        "operationId": "TagController_update",
+        "summary": "编辑标签",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTagDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "标签"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "TagController_remove",
+        "summary": "删除标签（被引用时拒绝）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "标签"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/brands": {
+      "get": {
+        "operationId": "BrandController_list",
+        "summary": "品牌列表",
+        "description": "支持关键词（品牌名/对接人/发票抬头）与客户等级精确过滤。品牌是公司级客户资产，不做数据范围收敛：换商务后客户资料仍应完整可见。",
+        "parameters": [
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "description": "关键词：品牌名/对接人/发票抬头",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "level",
+            "required": false,
+            "in": "query",
+            "description": "客户等级精确过滤",
+            "schema": {
+              "enum": [
+                "S",
+                "A",
+                "B",
+                "C",
+                "D"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "品牌管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "BrandController_create",
+        "summary": "新建品牌",
+        "description": "品牌名称全局唯一，重名直接拒绝。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBrandDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "品牌管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/brands/{id}": {
+      "get": {
+        "operationId": "BrandController_detail",
+        "summary": "品牌详情",
+        "description": "返回品牌档案、最近 20 份合同与汇总统计（合同数/在跑合同数/项目数/内容流水）。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "品牌管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "BrandController_update",
+        "summary": "编辑品牌档案",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBrandDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "品牌管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "BrandController_remove",
+        "summary": "删除品牌",
+        "description": "软删除；被合同或项目引用时拒绝，并在错误信息中给出引用数量。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "品牌管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contracts": {
+      "get": {
+        "operationId": "ContractController_list",
+        "summary": "合同列表（按状态/达人/品牌/关键词筛选）",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "DRAFT",
+                  "PENDING_REVIEW",
+                  "ACTIVE",
+                  "EXPIRED",
+                  "TERMINATED"
+                ]
+              }
+            }
+          },
+          {
+            "name": "creatorId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brandId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "description": "关键词：合同编号/标题/达人姓名",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "合同管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "ContractController_create",
+        "summary": "新建合同（草稿）",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "合同管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contracts/{id}": {
+      "get": {
+        "operationId": "ContractController_detail",
+        "summary": "合同详情（含分润比例换算、关联项目、历史结算汇总）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "合同管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "ContractController_update",
+        "summary": "编辑合同",
+        "description": "生效中/待审核状态的合同禁止修改金额与分润条款（保留历史结算依据）。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "合同管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "ContractController_remove",
+        "summary": "删除合同（仅草稿可删，软删除）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "合同管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contracts/{id}/settlement-preview": {
+      "get": {
+        "operationId": "ContractController_preview",
+        "summary": "结算预估",
+        "description": "使用与正式结算完全相同的计算引擎预演金额，商务可在签约/出账前回答「这个月要付达人多少钱」。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "description": "账期 YYYY-MM",
+            "schema": {
+              "example": "2026-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodStart",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodEnd",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "合同管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contracts/{id}/submit": {
+      "post": {
+        "operationId": "ContractController_submit",
+        "summary": "提交审核（校验生效区间是否与该达人已有合同冲突）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "合同管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contracts/{id}/approve": {
+      "post": {
+        "operationId": "ContractController_approve",
+        "summary": "审批合同",
+        "description": "通过后合同生效并自动将达人推进为「已签约」；拟定人不能审批自己的合同。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveContractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "合同管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contracts/{id}/terminate": {
+      "post": {
+        "operationId": "ContractController_terminate",
+        "summary": "终止合同（存在未结清结算单时需 force=true）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerminateContractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "合同管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/projects": {
+      "get": {
+        "operationId": "ProjectController_list",
+        "summary": "项目列表",
+        "description": "支持状态多选、品牌、达人与关键词（项目名/编号/品牌名/达人名）过滤。数据范围：商务仅可见自己负责的项目（或自己达人的项目）。",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "状态多选",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "DRAFT",
+                  "SCHEDULED",
+                  "IN_PRODUCTION",
+                  "IN_REVIEW",
+                  "PUBLISHED",
+                  "COMPLETED",
+                  "CANCELED"
+                ]
+              }
+            }
+          },
+          {
+            "name": "brandId",
+            "required": false,
+            "in": "query",
+            "description": "品牌 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "creatorId",
+            "required": false,
+            "in": "query",
+            "description": "达人 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "description": "关键词：项目名称/编号/品牌名/达人名",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "项目管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "ProjectController_create",
+        "summary": "新建项目",
+        "description": "校验达人可排期状态、合同归属达人一致性、品牌与负责人有效性、截止日晚于开始日；项目编号在事务内分配。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "项目管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/projects/{id}": {
+      "get": {
+        "operationId": "ProjectController_detail",
+        "summary": "项目详情",
+        "description": "返回最多 100 条内容、预算/实际成本/成本率与内容流水汇总，以及状态机可选下一步。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "项目管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "ProjectController_update",
+        "summary": "编辑项目",
+        "description": "已结项/已取消的项目不允许修改（保留历史成本口径）。状态变更请走 /status 接口。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "项目管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "ProjectController_remove",
+        "summary": "删除项目",
+        "description": "软删除；存在未终止内容（非「已驳回/已下线」）时拒绝，并给出内容条数。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "项目管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/projects/{id}/status": {
+      "post": {
+        "operationId": "ProjectController_changeStatus",
+        "summary": "变更项目状态",
+        "description": "按状态机校验流转；变更为「已结项」时回填 completedAt；变更为「已取消」必须填写 reason（原因写入审计日志）。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeProjectStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "项目管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contents": {
+      "get": {
+        "operationId": "ContentController_list",
+        "summary": "内容列表",
+        "description": "支持达人/项目/平台/状态多选/关键词与发布时间区间过滤。数据范围经达人归属收敛：商务仅可见自己负责达人的内容。",
+        "parameters": [
+          {
+            "name": "creatorId",
+            "required": false,
+            "in": "query",
+            "description": "达人 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": false,
+            "in": "query",
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platform",
+            "required": false,
+            "in": "query",
+            "description": "平台精确过滤",
+            "schema": {
+              "enum": [
+                "DOUYIN",
+                "XIAOHONGSHU",
+                "BILIBILI",
+                "WECHAT_CHANNEL",
+                "KUAISHOU",
+                "WEIBO",
+                "TIKTOK",
+                "YOUTUBE",
+                "INSTAGRAM"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "状态多选",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "IDEA",
+                  "SCRIPTING",
+                  "SHOOTING",
+                  "EDITING",
+                  "INTERNAL_REVIEW",
+                  "PLATFORM_REVIEW",
+                  "PUBLISHED",
+                  "REJECTED",
+                  "OFFLINE"
+                ]
+              }
+            }
+          },
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "description": "关键词：内容标题/平台内容 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "发布时间起（含），ISO 8601",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "发布时间止（含），ISO 8601",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "内容管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "ContentController_create",
+        "summary": "新建内容",
+        "description": "校验达人可排期状态；项目必须未取消且与内容达人一致；账号必须是该达人在同平台的账号。初始状态仅允许选题/脚本中。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "内容管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contents/{id}": {
+      "get": {
+        "operationId": "ContentController_detail",
+        "summary": "内容详情",
+        "description": "返回脚本、AI 任务、达人/项目归属、结算明细与状态机可选下一步。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "内容管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "ContentController_update",
+        "summary": "编辑内容",
+        "description": "已发布内容不允许修改标题/平台/达人（会导致采集数据与结算归因错位）。complianceScore/complianceFlags 供 AI 合规预检回写。状态变更请走状态流转接口。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "内容管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "ContentController_remove",
+        "summary": "删除内容",
+        "description": "软删除；已发布内容或已产生结算明细的内容拒绝删除（保留采集数据与结算归因链路）。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "内容管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contents/{id}/submit-review": {
+      "post": {
+        "operationId": "ContentController_submitReview",
+        "summary": "提交平台审核",
+        "description": "内部审核 → 平台审核，按状态机断言流转合法性。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "内容管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contents/{id}/review": {
+      "post": {
+        "operationId": "ContentController_review",
+        "summary": "审核内容",
+        "description": "approved=true 时按当前状态推进（内部审核→平台审核，平台审核→已发布并回填发布时间）；false 时置「已驳回」并强制填写原因。记录 reviewerId。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewContentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "内容管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contents/{id}/publish": {
+      "post": {
+        "operationId": "ContentController_publish",
+        "summary": "发布内容",
+        "description": "状态机必须允许到「已发布」；回填平台内容 ID/链接；publishedAt 不传取当前时间（支持补录）。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishContentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "内容管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/contents/{id}/sync-metrics": {
+      "post": {
+        "operationId": "ContentController_syncMetrics",
+        "summary": "同步效果数据",
+        "description": "调用采集器刷新播放/互动/完播/流水。采集失败不抛异常，返回 { success:false, error } 供前端提示重试（单个内容失败不应让整批任务失败）。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "内容管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/settlements": {
+      "get": {
+        "operationId": "SettlementController_list",
+        "summary": "结算单列表",
+        "description": "按账期/状态/达人筛选。金额字段为字符串（元，2 位小数），避免前端浮点误差。",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "DRAFT",
+                  "PENDING_APPROVAL",
+                  "APPROVED",
+                  "PAID",
+                  "DISPUTED",
+                  "VOID"
+                ]
+              }
+            }
+          },
+          {
+            "name": "creatorId",
+            "required": false,
+            "in": "query",
+            "description": "达人 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodStart",
+            "required": false,
+            "in": "query",
+            "description": "账期开始（ISO 日期）",
+            "schema": {
+              "example": "2026-01-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodEnd",
+            "required": false,
+            "in": "query",
+            "description": "账期结束（ISO 日期）",
+            "schema": {
+              "example": "2026-01-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "description": "关键词：结算单号 / 达人姓名",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "结算管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/settlements/export": {
+      "get": {
+        "operationId": "SettlementController_export",
+        "summary": "导出结算表（CSV，带 BOM 保证 Excel 中文不乱码）",
+        "description": "导出动作本身会记录审计日志，属于敏感数据外发。",
+        "parameters": [
+          {
+            "name": "creatorId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodStart",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "periodEnd",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "DRAFT",
+                  "PENDING_APPROVAL",
+                  "APPROVED",
+                  "PAID",
+                  "DISPUTED",
+                  "VOID"
+                ]
+              }
+            }
+          },
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "结算管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/settlements/{id}": {
+      "get": {
+        "operationId": "SettlementController_detail",
+        "summary": "结算单详情（含明细、计算链路、可执行动作）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "结算管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/settlements/generate": {
+      "post": {
+        "operationId": "SettlementController_generate",
+        "summary": "按账期批量生成结算单",
+        "description": "幂等：重复调用不会重复出账（补贴明细有唯一幂等键，同一达人同账期唯一）。按内容发布月归因，跨月不重复计算。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateSettlementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "结算管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/settlements/{id}/submit": {
+      "post": {
+        "operationId": "SettlementController_submit",
+        "summary": "提交审批（提交前校验明细汇总与单据金额一致）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "结算管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/settlements/{id}/adjust": {
+      "post": {
+        "operationId": "SettlementController_adjust",
+        "summary": "调整结算金额（补款/扣款，必须填原因）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustSettlementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "结算管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/settlements/{id}/approve": {
+      "post": {
+        "operationId": "SettlementController_approve",
+        "summary": "审批结算单",
+        "description": "双人复核：创建人不能审批自己生成的单据（系统内存在其他财务时）。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "结算管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/settlements/{id}/pay": {
+      "post": {
+        "operationId": "SettlementController_pay",
+        "summary": "标记已打款（可上传打款凭证），并通知达人负责人",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaySettlementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "结算管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/settlements/{id}/dispute": {
+      "post": {
+        "operationId": "SettlementController_dispute",
+        "summary": "标记争议（达人/财务对金额有异议时）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeSettlementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "结算管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/settlements/{id}/void": {
+      "post": {
+        "operationId": "SettlementController_void",
+        "summary": "作废结算单（作废后同账期可重新生成）",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoidSettlementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "结算管理"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/dashboard/overview": {
+      "get": {
+        "operationId": "DashboardController_overview",
+        "summary": "经营看板总览",
+        "description": "KPI、达人合作漏斗（累计口径）、流水趋势、平台/垂类分布、头部达人、待办事项。默认统计近 30 天。",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "经营看板"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/dashboard/creator-ranking": {
+      "get": {
+        "operationId": "DashboardController_ranking",
+        "summary": "达人贡献榜（可按流水/内容数/播放量排序）",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "经营看板"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/users": {
+      "get": {
+        "operationId": "UserController_list",
+        "summary": "员工列表",
+        "description": "支持角色、状态与关键词（姓名/邮箱/手机号）过滤。仅管理员可见。",
+        "parameters": [
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "description": "角色过滤",
+            "schema": {
+              "enum": [
+                "SUPER_ADMIN",
+                "OPERATIONS",
+                "BD",
+                "CONTENT",
+                "FINANCE",
+                "AUDITOR"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "状态过滤",
+            "schema": {
+              "enum": [
+                "ACTIVE",
+                "DISABLED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "description": "关键词：姓名/邮箱/手机号",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "员工与权限"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "UserController_create",
+        "summary": "新建员工",
+        "description": "不传 password 时服务端生成强随机初始密码，并在响应中返回一次（库中只存 bcrypt 哈希，之后无法取回，请管理员当场保存）。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "员工与权限"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/users/permissions/catalog": {
+      "get": {
+        "operationId": "UserController_permissionCatalog",
+        "summary": "权限点目录",
+        "description": "返回全部权限点及其中文名、所属分组与风险等级（高风险权限需重点复核），按分组排序。",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "员工与权限"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/users/roles": {
+      "get": {
+        "operationId": "UserController_roleCatalog",
+        "summary": "角色目录",
+        "description": "返回每个角色的默认权限点与默认数据范围（ALL/TEAM/OWN），用于权限矩阵可视化。",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "员工与权限"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/users/teams": {
+      "get": {
+        "operationId": "UserController_teams",
+        "summary": "团队树",
+        "description": "返回 Team 自关联的嵌套结构，供组织架构与筛选器使用。",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "员工与权限"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/users/{id}": {
+      "patch": {
+        "operationId": "UserController_update",
+        "summary": "编辑员工资料",
+        "description": "可改姓名/手机号/头像/团队/状态/角色。禁止修改自己的角色、禁止禁用自己的账号（防呆）。改为禁用时会撤销该员工全部会话。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "员工与权限"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/users/{id}/status": {
+      "post": {
+        "operationId": "UserController_changeStatus",
+        "summary": "变更账号状态",
+        "description": "禁用时同步调用 revokeAllSessions 撤销该员工全部会话，避免其用旧 refresh token 继续换发 access token（否则禁用形同虚设）。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeUserStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "员工与权限"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/users/{id}/reset-password": {
+      "post": {
+        "operationId": "UserController_resetPassword",
+        "summary": "重置密码",
+        "description": "生成新的随机初始密码（仅本次响应返回）并撤销该员工全部会话，强制其用新密码重新登录。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "员工与权限"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/users/{id}/permissions": {
+      "patch": {
+        "operationId": "UserController_updatePermissions",
+        "summary": "变更员工权限",
+        "description": "permissionOverrides 中合法权限码表示额外授予，\"-\" 前缀表示撤销（撤销优先）。非法项整体拒绝并列明。变更后撤销该员工全部会话：access token 内嵌权限最长有 2h 滞后，必须重新登录才生效。",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserPermissionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "员工与权限"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "CreatorOps · 达人合作管理平台 API",
+    "description": "聚猩智媒内部达人合作全流程管理平台后端接口。\n\n**鉴权**：除 /api/auth/login、/api/auth/refresh、/api/health 外，所有接口都需要 Bearer Token。\n\n**统一响应结构**：成功 `{ success: true, data, requestId, timestamp }`；\n失败 `{ success: false, code, message, details?, path, requestId, timestamp }`。\n\n**金额与比率约定**：金额返回为字符串（元，2 位小数）以避免浮点误差；\n分润比率以基点(bp)整数传输，1000 = 10%。\n\n**权限模型**：RBAC + 数据范围（ALL/TEAM/OWN）+ 资源归属校验，见 docs/permissions.md。",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "认证",
+      "description": "登录、刷新令牌、个人资料"
+    },
+    {
+      "name": "达人管理",
+      "description": "达人主数据、状态机、评估、标签"
+    },
+    {
+      "name": "品牌",
+      "description": "品牌/客户主数据"
+    },
+    {
+      "name": "合同管理",
+      "description": "合同拟定、审批、分润规则、结算预估"
+    },
+    {
+      "name": "项目",
+      "description": "内容项目与排期"
+    },
+    {
+      "name": "内容",
+      "description": "内容生产、审核、发布、数据采集"
+    },
+    {
+      "name": "结算管理",
+      "description": "结算生成、审批、打款、导出"
+    },
+    {
+      "name": "AI 能力",
+      "description": "AI 任务、Prompt 模板、成本用量"
+    },
+    {
+      "name": "经营看板",
+      "description": "KPI、漏斗、趋势、排行"
+    },
+    {
+      "name": "员工与权限",
+      "description": "账号、角色、团队"
+    },
+    {
+      "name": "审计日志",
+      "description": "操作审计查询"
+    },
+    {
+      "name": "健康检查",
+      "description": "存活与就绪探针"
+    }
+  ],
+  "servers": [
+    {
+      "url": "http://localhost:3100",
+      "description": "当前环境"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "登录后获取的 accessToken"
+      }
+    },
+    "schemas": {
+      "CreateAiTaskDto": {
+        "type": "object",
+        "properties": {
+          "taskType": {
+            "type": "string",
+            "enum": [
+              "SCRIPT_GENERATE",
+              "TITLE_OPTIMIZE",
+              "CREATOR_MATCH",
+              "COMMENT_INSIGHT",
+              "COMPLIANCE_CHECK",
+              "SETTLEMENT_ANOMALY",
+              "DAILY_BRIEF"
+            ],
+            "description": "任务类型"
+          },
+          "input": {
+            "type": "object",
+            "description": "任务输入。字段需与对应 Prompt 模板声明的变量一致，例如脚本生成：{brief, vertical, platform, duration, tone}",
+            "example": {
+              "brief": "某美妆品牌新品粉底液种草，主打持妆 12 小时",
+              "platform": "DOUYIN",
+              "duration": 45
+            }
+          },
+          "creatorId": {
+            "type": "string",
+            "description": "关联达人 ID（便于从达人详情页反查 AI 历史）"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "幂等键。同一 key 只真正调用一次模型，防止用户重复点击造成重复扣费。前端建议用 crypto.randomUUID() 生成",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "taskType",
+          "input"
+        ]
+      },
+      "SubmitFeedbackDto": {
+        "type": "object",
+        "properties": {
+          "feedback": {
+            "type": "number",
+            "description": "1 = 采纳，-1 = 拒绝",
+            "enum": [
+              1,
+              -1
+            ]
+          },
+          "note": {
+            "type": "string",
+            "description": "反馈备注，说明采纳/拒绝原因，用于 Prompt 迭代",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "feedback"
+        ]
+      },
+      "PromptVariableDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "变量名，模板中用 {{name}} 引用"
+          },
+          "required": {
+            "type": "boolean",
+            "description": "是否必填，默认 true"
+          },
+          "description": {
+            "type": "string",
+            "description": "变量说明，展示在 AI 工作台表单上"
+          },
+          "maxLength": {
+            "type": "number",
+            "description": "最大长度，超出会被截断以防 token 爆炸",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CreatePromptTemplateDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "模板 key，如 script.generate；同一 key 的多次创建会递增版本号"
+          },
+          "name": {
+            "type": "string",
+            "description": "模板名称"
+          },
+          "description": {
+            "type": "string",
+            "description": "模板说明"
+          },
+          "systemPrompt": {
+            "type": "string",
+            "description": "系统提示词：角色设定与硬性约束"
+          },
+          "userPromptTemplate": {
+            "type": "string",
+            "description": "用户提示词模板，使用 {{variable}} 占位"
+          },
+          "variables": {
+            "description": "变量声明",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PromptVariableDto"
+            }
+          },
+          "outputSchema": {
+            "type": "object",
+            "description": "期望输出的 JSON Schema（用于文档与校验参考）"
+          },
+          "model": {
+            "type": "string",
+            "description": "使用的模型名，如 gpt-4o-mini / claude-3-5-sonnet / gemini-1.5-pro"
+          },
+          "temperature": {
+            "type": "number",
+            "description": "温度 0-2，创意任务高、结构化任务低",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "maxTokens": {
+            "type": "number",
+            "description": "最大输出 token",
+            "minimum": 256
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "是否启用"
+          },
+          "rolloutPercent": {
+            "type": "number",
+            "description": "灰度比例 0-100。小于 100 时仅部分流量生效，用于 A/B 验证 Prompt 效果",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "version": {
+            "type": "number",
+            "description": "指定版本号（默认在 latest 基础上 +1）"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "systemPrompt",
+          "userPromptTemplate",
+          "model"
+        ]
+      },
+      "UpdatePromptTemplateDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "模板 key，如 script.generate；同一 key 的多次创建会递增版本号"
+          },
+          "name": {
+            "type": "string",
+            "description": "模板名称"
+          },
+          "description": {
+            "type": "string",
+            "description": "模板说明"
+          },
+          "systemPrompt": {
+            "type": "string",
+            "description": "系统提示词：角色设定与硬性约束"
+          },
+          "userPromptTemplate": {
+            "type": "string",
+            "description": "用户提示词模板，使用 {{variable}} 占位"
+          },
+          "variables": {
+            "description": "变量声明",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PromptVariableDto"
+            }
+          },
+          "outputSchema": {
+            "type": "object",
+            "description": "期望输出的 JSON Schema（用于文档与校验参考）"
+          },
+          "model": {
+            "type": "string",
+            "description": "使用的模型名，如 gpt-4o-mini / claude-3-5-sonnet / gemini-1.5-pro"
+          },
+          "temperature": {
+            "type": "number",
+            "description": "温度 0-2，创意任务高、结构化任务低",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "maxTokens": {
+            "type": "number",
+            "description": "最大输出 token",
+            "minimum": 256
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "是否启用"
+          },
+          "rolloutPercent": {
+            "type": "number",
+            "description": "灰度比例 0-100。小于 100 时仅部分流量生效，用于 A/B 验证 Prompt 效果",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "version": {
+            "type": "number",
+            "description": "指定版本号（默认在 latest 基础上 +1）"
+          }
+        }
+      },
+      "TogglePromptTemplateDto": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean",
+            "description": "启用/停用。停用是下线而非删除，保留历史引用"
+          }
+        },
+        "required": [
+          "isActive"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "ops@juxingzhimei.com",
+            "description": "企业邮箱"
+          },
+          "password": {
+            "type": "string",
+            "example": "CreatorOps@2024",
+            "description": "登录密码"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "RefreshTokenDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "登录或上一次刷新返回的 refreshToken"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "oldPassword": {
+            "type": "string",
+            "description": "原密码"
+          },
+          "newPassword": {
+            "type": "string",
+            "description": "新密码：至少 10 位，含大小写/数字/符号中至少三类"
+          }
+        },
+        "required": [
+          "oldPassword",
+          "newPassword"
+        ]
+      },
+      "PlatformAccountDto": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "DOUYIN",
+              "XIAOHONGSHU",
+              "BILIBILI",
+              "WECHAT_CHANNEL",
+              "KUAISHOU",
+              "WEIBO",
+              "TIKTOK",
+              "YOUTUBE",
+              "INSTAGRAM"
+            ],
+            "description": "平台"
+          },
+          "nickname": {
+            "type": "string",
+            "description": "平台昵称",
+            "maxLength": 128
+          },
+          "platformUid": {
+            "type": "string",
+            "description": "平台内唯一 ID（抖音 sec_uid / 小红书 user_id）",
+            "maxLength": 128
+          },
+          "profileUrl": {
+            "type": "string"
+          },
+          "homeUrl": {
+            "type": "string",
+            "description": "主页链接"
+          },
+          "followerCount": {
+            "type": "number",
+            "description": "粉丝数",
+            "minimum": 0
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "是否主账号（达人主页展示用）"
+          },
+          "dataSource": {
+            "type": "string",
+            "enum": [
+              "API_OFFICIAL",
+              "THIRD_PARTY",
+              "SCREENSHOT",
+              "MANUAL",
+              "MOCK"
+            ]
+          }
+        },
+        "required": [
+          "platform",
+          "nickname",
+          "platformUid"
+        ]
+      },
+      "CreateCreatorDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "达人昵称/艺名",
+            "maxLength": 64
+          },
+          "realName": {
+            "type": "string",
+            "description": "真实姓名（敏感，需 creator:sensitive:read 权限查看）"
+          },
+          "idCard": {
+            "type": "string",
+            "description": "证件号（服务端加密存储）"
+          },
+          "phone": {
+            "type": "string",
+            "description": "手机号"
+          },
+          "wechat": {
+            "type": "string",
+            "description": "微信号"
+          },
+          "email": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string",
+            "description": "常驻城市"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "LEAD",
+              "CONTACTING",
+              "EVALUATING",
+              "SIGNED",
+              "ACTIVE",
+              "PAUSED",
+              "TERMINATED",
+              "BLACKLIST"
+            ],
+            "description": "初始状态，默认 LEAD"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "S",
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "description": "达人分级，默认 C"
+          },
+          "verticals": {
+            "type": "array",
+            "description": "内容垂类",
+            "items": {
+              "type": "string",
+              "enum": [
+                "SHORT_DRAMA",
+                "LIFESTYLE",
+                "BEAUTY",
+                "GAMING",
+                "FOOD",
+                "TECH",
+                "KNOWLEDGE",
+                "FASHION",
+                "FITNESS",
+                "OTHER"
+              ]
+            }
+          },
+          "styleTags": {
+            "description": "人设/风格标签，用于 AI 匹配",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "agencyType": {
+            "type": "string",
+            "description": "机构合作类型：FULL_MCN / COMMERCIAL / INDEPENDENT"
+          },
+          "agencyName": {
+            "type": "string",
+            "description": "所属 MCN 机构名"
+          },
+          "sourceChannel": {
+            "type": "string",
+            "description": "招募渠道：DOUYIN_DM / REFERRAL / OFFLINE / SCHOOL ..."
+          },
+          "score": {
+            "type": "number",
+            "description": "综合评估分 0-100",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "负责人（员工）ID"
+          },
+          "teamId": {
+            "type": "string",
+            "description": "所属团队 ID"
+          },
+          "tagIds": {
+            "description": "标签 ID 列表",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remark": {
+            "type": "string",
+            "description": "备注"
+          },
+          "availability": {
+            "type": "object",
+            "description": "档期与合作偏好（结构化）"
+          },
+          "accounts": {
+            "description": "平台账号（可一起创建）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformAccountDto"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "BatchImportCreatorDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "批量导入的达人数组（最多 200 条）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateCreatorDto"
+            }
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "全部导入到该负责人名下"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "UpdateCreatorDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "达人昵称/艺名",
+            "maxLength": 64
+          },
+          "realName": {
+            "type": "string",
+            "description": "真实姓名（敏感，需 creator:sensitive:read 权限查看）"
+          },
+          "idCard": {
+            "type": "string",
+            "description": "证件号（服务端加密存储）"
+          },
+          "phone": {
+            "type": "string",
+            "description": "手机号"
+          },
+          "wechat": {
+            "type": "string",
+            "description": "微信号"
+          },
+          "email": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string",
+            "description": "常驻城市"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "LEAD",
+              "CONTACTING",
+              "EVALUATING",
+              "SIGNED",
+              "ACTIVE",
+              "PAUSED",
+              "TERMINATED",
+              "BLACKLIST"
+            ],
+            "description": "初始状态，默认 LEAD"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "S",
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "description": "达人分级，默认 C"
+          },
+          "verticals": {
+            "type": "array",
+            "description": "内容垂类",
+            "items": {
+              "type": "string",
+              "enum": [
+                "SHORT_DRAMA",
+                "LIFESTYLE",
+                "BEAUTY",
+                "GAMING",
+                "FOOD",
+                "TECH",
+                "KNOWLEDGE",
+                "FASHION",
+                "FITNESS",
+                "OTHER"
+              ]
+            }
+          },
+          "styleTags": {
+            "description": "人设/风格标签，用于 AI 匹配",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "agencyType": {
+            "type": "string",
+            "description": "机构合作类型：FULL_MCN / COMMERCIAL / INDEPENDENT"
+          },
+          "agencyName": {
+            "type": "string",
+            "description": "所属 MCN 机构名"
+          },
+          "sourceChannel": {
+            "type": "string",
+            "description": "招募渠道：DOUYIN_DM / REFERRAL / OFFLINE / SCHOOL ..."
+          },
+          "score": {
+            "type": "number",
+            "description": "综合评估分 0-100",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "负责人（员工）ID"
+          },
+          "teamId": {
+            "type": "string",
+            "description": "所属团队 ID"
+          },
+          "tagIds": {
+            "description": "标签 ID 列表",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remark": {
+            "type": "string",
+            "description": "备注"
+          },
+          "availability": {
+            "type": "object",
+            "description": "档期与合作偏好（结构化）"
+          },
+          "accounts": {
+            "description": "平台账号（可一起创建）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformAccountDto"
+            }
+          }
+        }
+      },
+      "ChangeCreatorStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "LEAD",
+              "CONTACTING",
+              "EVALUATING",
+              "SIGNED",
+              "ACTIVE",
+              "PAUSED",
+              "TERMINATED",
+              "BLACKLIST"
+            ],
+            "description": "目标状态"
+          },
+          "reason": {
+            "type": "string",
+            "description": "变更原因。黑名单/解约等高风险流转必填，用于审计追溯",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "EvaluateCreatorDto": {
+        "type": "object",
+        "properties": {
+          "contentScore": {
+            "type": "number",
+            "description": "内容能力 0-100"
+          },
+          "commercialScore": {
+            "type": "number",
+            "description": "商业化能力 0-100"
+          },
+          "cooperationScore": {
+            "type": "number",
+            "description": "配合度 0-100"
+          },
+          "dataScore": {
+            "type": "number",
+            "description": "数据表现 0-100"
+          },
+          "remark": {
+            "type": "string",
+            "description": "评估备注"
+          }
+        },
+        "required": [
+          "contentScore",
+          "commercialScore",
+          "cooperationScore",
+          "dataScore"
+        ]
+      },
+      "AssignCreatorDto": {
+        "type": "object",
+        "properties": {
+          "ownerId": {
+            "type": "string",
+            "description": "负责人 ID"
+          },
+          "note": {
+            "type": "string",
+            "description": "交接说明，会写入审计日志"
+          }
+        },
+        "required": [
+          "ownerId"
+        ]
+      },
+      "CreateTagDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "标签名称，全局唯一",
+            "maxLength": 32
+          },
+          "category": {
+            "type": "string",
+            "description": "标签分类：capability(能力) / category(品类) / risk(风险) / custom"
+          },
+          "color": {
+            "type": "string",
+            "description": "展示色，十六进制",
+            "example": "#4F46E5"
+          }
+        },
+        "required": [
+          "name",
+          "category"
+        ]
+      },
+      "UpdateTagDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateBrandDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "品牌/客户名称，全局唯一",
+            "maxLength": 128
+          },
+          "industry": {
+            "type": "string",
+            "description": "所属行业，如 美妆/游戏/短剧",
+            "maxLength": 64
+          },
+          "contactName": {
+            "type": "string",
+            "description": "对接人姓名",
+            "maxLength": 64
+          },
+          "contactPhone": {
+            "type": "string",
+            "description": "对接人电话（手机或座机，允许 - ( ) 空格）"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "S",
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "description": "客户等级，默认 B"
+          },
+          "paymentTermDays": {
+            "type": "number",
+            "description": "默认账期天数（合同可覆盖）",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "invoiceTitle": {
+            "type": "string",
+            "description": "发票抬头",
+            "maxLength": 200
+          },
+          "taxNo": {
+            "type": "string",
+            "description": "纳税人识别号",
+            "maxLength": 64
+          },
+          "remark": {
+            "type": "string",
+            "description": "备注（报价习惯、决策链等）",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateBrandDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "品牌/客户名称，全局唯一",
+            "maxLength": 128
+          },
+          "industry": {
+            "type": "string",
+            "description": "所属行业，如 美妆/游戏/短剧",
+            "maxLength": 64
+          },
+          "contactName": {
+            "type": "string",
+            "description": "对接人姓名",
+            "maxLength": 64
+          },
+          "contactPhone": {
+            "type": "string",
+            "description": "对接人电话（手机或座机，允许 - ( ) 空格）"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "S",
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "description": "客户等级，默认 B"
+          },
+          "paymentTermDays": {
+            "type": "number",
+            "description": "默认账期天数（合同可覆盖）",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "invoiceTitle": {
+            "type": "string",
+            "description": "发票抬头",
+            "maxLength": 200
+          },
+          "taxNo": {
+            "type": "string",
+            "description": "纳税人识别号",
+            "maxLength": 64
+          },
+          "remark": {
+            "type": "string",
+            "description": "备注（报价习惯、决策链等）",
+            "maxLength": 2000
+          }
+        }
+      },
+      "TieredShareDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "number",
+            "description": "区间下界（分），含",
+            "example": 0
+          },
+          "to": {
+            "type": "number",
+            "description": "区间上界（分），不含；null 表示无上限",
+            "nullable": true
+          },
+          "talentShareBp": {
+            "type": "number",
+            "description": "达人分成率（基点，7000 = 70%）"
+          }
+        },
+        "required": [
+          "from",
+          "talentShareBp"
+        ]
+      },
+      "CreateContractDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "合同标题",
+            "maxLength": 200
+          },
+          "creatorId": {
+            "type": "string",
+            "description": "达人 ID"
+          },
+          "brandId": {
+            "type": "string",
+            "description": "品牌/客户 ID"
+          },
+          "settlementMode": {
+            "type": "string",
+            "enum": [
+              "REVENUE_SHARE",
+              "FIXED_FEE",
+              "HYBRID",
+              "CPA"
+            ],
+            "description": "结算模式"
+          },
+          "currency": {
+            "type": "string",
+            "description": "币种，默认 CNY"
+          },
+          "fixedFee": {
+            "type": "string",
+            "description": "保底/一口价金额（元，字符串）",
+            "example": "5000.00"
+          },
+          "platformFeeBp": {
+            "type": "number",
+            "description": "平台抽成（基点，1000 = 10%）",
+            "example": 1000
+          },
+          "agencyShareBp": {
+            "type": "number",
+            "description": "公司分成（基点，3000 = 30%）",
+            "example": 3000
+          },
+          "talentShareBp": {
+            "type": "number",
+            "description": "达人分成（基点，7000 = 70%）",
+            "example": 7000
+          },
+          "taxWithholdBp": {
+            "type": "number",
+            "description": "代扣税率（基点，600 = 6%）",
+            "example": 600
+          },
+          "cpaUnitPrice": {
+            "type": "string",
+            "description": "CPA 单价（元/次转化）"
+          },
+          "tieredShares": {
+            "description": "阶梯分成规则，命中后覆盖达人分成",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TieredShareDto"
+            }
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "description": "生效开始日期（ISO）",
+            "example": "2026-01-01"
+          },
+          "effectiveTo": {
+            "type": "string",
+            "description": "生效结束日期（ISO）",
+            "example": "2026-12-31"
+          },
+          "exclusivity": {
+            "type": "boolean",
+            "description": "是否独家合作"
+          },
+          "exclusivityScope": {
+            "type": "string",
+            "description": "独家范围说明，如「美妆类目」"
+          },
+          "deliverableSpec": {
+            "type": "object",
+            "description": "交付要求：条数/平台/形式"
+          },
+          "breachClause": {
+            "type": "string",
+            "description": "违约责任摘要"
+          },
+          "attachmentUrls": {
+            "description": "附件地址列表",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "creatorId",
+          "settlementMode",
+          "platformFeeBp",
+          "agencyShareBp",
+          "talentShareBp",
+          "taxWithholdBp",
+          "effectiveFrom",
+          "effectiveTo"
+        ]
+      },
+      "UpdateContractDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "合同标题",
+            "maxLength": 200
+          },
+          "creatorId": {
+            "type": "string",
+            "description": "达人 ID"
+          },
+          "brandId": {
+            "type": "string",
+            "description": "品牌/客户 ID"
+          },
+          "settlementMode": {
+            "type": "string",
+            "enum": [
+              "REVENUE_SHARE",
+              "FIXED_FEE",
+              "HYBRID",
+              "CPA"
+            ],
+            "description": "结算模式"
+          },
+          "currency": {
+            "type": "string",
+            "description": "币种，默认 CNY"
+          },
+          "fixedFee": {
+            "type": "string",
+            "description": "保底/一口价金额（元，字符串）",
+            "example": "5000.00"
+          },
+          "platformFeeBp": {
+            "type": "number",
+            "description": "平台抽成（基点，1000 = 10%）",
+            "example": 1000
+          },
+          "agencyShareBp": {
+            "type": "number",
+            "description": "公司分成（基点，3000 = 30%）",
+            "example": 3000
+          },
+          "talentShareBp": {
+            "type": "number",
+            "description": "达人分成（基点，7000 = 70%）",
+            "example": 7000
+          },
+          "taxWithholdBp": {
+            "type": "number",
+            "description": "代扣税率（基点，600 = 6%）",
+            "example": 600
+          },
+          "cpaUnitPrice": {
+            "type": "string",
+            "description": "CPA 单价（元/次转化）"
+          },
+          "tieredShares": {
+            "description": "阶梯分成规则，命中后覆盖达人分成",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TieredShareDto"
+            }
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "description": "生效开始日期（ISO）",
+            "example": "2026-01-01"
+          },
+          "effectiveTo": {
+            "type": "string",
+            "description": "生效结束日期（ISO）",
+            "example": "2026-12-31"
+          },
+          "exclusivity": {
+            "type": "boolean",
+            "description": "是否独家合作"
+          },
+          "exclusivityScope": {
+            "type": "string",
+            "description": "独家范围说明，如「美妆类目」"
+          },
+          "deliverableSpec": {
+            "type": "object",
+            "description": "交付要求：条数/平台/形式"
+          },
+          "breachClause": {
+            "type": "string",
+            "description": "违约责任摘要"
+          },
+          "attachmentUrls": {
+            "description": "附件地址列表",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApproveContractDto": {
+        "type": "object",
+        "properties": {
+          "approved": {
+            "type": "boolean",
+            "description": "true 通过并生效；false 驳回退回草稿"
+          },
+          "note": {
+            "type": "string",
+            "description": "审核意见",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "approved"
+        ]
+      },
+      "TerminateContractDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "终止原因（必填，写入合同备注与审计日志）",
+            "maxLength": 500
+          },
+          "force": {
+            "type": "boolean",
+            "description": "存在未结清结算单时是否强制终止（需财务确认）"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "CreateProjectDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "项目名称，如「某品牌 3 月短剧投放」",
+            "maxLength": 200
+          },
+          "brandId": {
+            "type": "string",
+            "description": "品牌（客户）ID"
+          },
+          "contractId": {
+            "type": "string",
+            "description": "合同 ID。合同的达人必须与 creatorId 一致"
+          },
+          "creatorId": {
+            "type": "string",
+            "description": "达人 ID。需已签约且在可排期状态"
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "SHORT_DRAMA",
+              "LIFESTYLE",
+              "BEAUTY",
+              "GAMING",
+              "FOOD",
+              "TECH",
+              "KNOWLEDGE",
+              "FASHION",
+              "FITNESS",
+              "OTHER"
+            ],
+            "description": "内容垂类，默认 SHORT_DRAMA"
+          },
+          "budget": {
+            "type": "string",
+            "description": "预算（元，字符串，最多两位小数）。用于毛利看板",
+            "example": "50000.00"
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "项目负责人（员工）ID"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "开始日期（ISO 8601）",
+            "example": "2026-03-01"
+          },
+          "dueDate": {
+            "type": "string",
+            "description": "交付截止日期（ISO 8601），必须晚于开始日期"
+          },
+          "brief": {
+            "type": "string",
+            "description": "项目 brief：内容方向、交付要求、注意事项",
+            "maxLength": 5000
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateProjectDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "项目名称，如「某品牌 3 月短剧投放」",
+            "maxLength": 200
+          },
+          "brandId": {
+            "type": "string",
+            "description": "品牌（客户）ID"
+          },
+          "contractId": {
+            "type": "string",
+            "description": "合同 ID。合同的达人必须与 creatorId 一致"
+          },
+          "creatorId": {
+            "type": "string",
+            "description": "达人 ID。需已签约且在可排期状态"
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "SHORT_DRAMA",
+              "LIFESTYLE",
+              "BEAUTY",
+              "GAMING",
+              "FOOD",
+              "TECH",
+              "KNOWLEDGE",
+              "FASHION",
+              "FITNESS",
+              "OTHER"
+            ],
+            "description": "内容垂类，默认 SHORT_DRAMA"
+          },
+          "budget": {
+            "type": "string",
+            "description": "预算（元，字符串，最多两位小数）。用于毛利看板",
+            "example": "50000.00"
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "项目负责人（员工）ID"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "开始日期（ISO 8601）",
+            "example": "2026-03-01"
+          },
+          "dueDate": {
+            "type": "string",
+            "description": "交付截止日期（ISO 8601），必须晚于开始日期"
+          },
+          "brief": {
+            "type": "string",
+            "description": "项目 brief：内容方向、交付要求、注意事项",
+            "maxLength": 5000
+          }
+        }
+      },
+      "ChangeProjectStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SCHEDULED",
+              "IN_PRODUCTION",
+              "IN_REVIEW",
+              "PUBLISHED",
+              "COMPLETED",
+              "CANCELED"
+            ],
+            "description": "目标状态"
+          },
+          "reason": {
+            "type": "string",
+            "description": "变更原因。变更为「已取消」时必填（用于审计追溯）",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "CreateContentDto": {
+        "type": "object",
+        "properties": {
+          "creatorId": {
+            "type": "string",
+            "description": "达人 ID（内容归属人，结算归因的最小单元就是它）"
+          },
+          "projectId": {
+            "type": "string",
+            "description": "所属项目 ID"
+          },
+          "accountId": {
+            "type": "string",
+            "description": "发布账号 ID（PlatformAccount），必须是该达人自己的账号"
+          },
+          "title": {
+            "type": "string",
+            "description": "内容标题",
+            "maxLength": 200
+          },
+          "script": {
+            "type": "string",
+            "description": "脚本/文案（AI 生成内容也留档，便于复盘与合规追溯）"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "DOUYIN",
+              "XIAOHONGSHU",
+              "BILIBILI",
+              "WECHAT_CHANNEL",
+              "KUAISHOU",
+              "WEIBO",
+              "TIKTOK",
+              "YOUTUBE",
+              "INSTAGRAM"
+            ],
+            "description": "发布平台"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "IDEA",
+              "SCRIPTING",
+              "SHOOTING",
+              "EDITING",
+              "INTERNAL_REVIEW",
+              "PLATFORM_REVIEW",
+              "PUBLISHED",
+              "REJECTED",
+              "OFFLINE"
+            ],
+            "description": "初始状态，仅允许 IDEA 或 SCRIPTING；其余状态必须走状态流转接口"
+          },
+          "durationSec": {
+            "type": "number",
+            "description": "时长（秒）",
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "计划发布时间（ISO 8601）"
+          },
+          "aiTaskId": {
+            "type": "string",
+            "description": "关联的 AI 任务 ID（脚本生成/合规预检）"
+          }
+        },
+        "required": [
+          "creatorId",
+          "title",
+          "platform"
+        ]
+      },
+      "UpdateContentDto": {
+        "type": "object",
+        "properties": {
+          "creatorId": {
+            "type": "string",
+            "description": "达人 ID（内容归属人，结算归因的最小单元就是它）"
+          },
+          "projectId": {
+            "type": "string",
+            "description": "所属项目 ID"
+          },
+          "accountId": {
+            "type": "string",
+            "description": "发布账号 ID（PlatformAccount），必须是该达人自己的账号"
+          },
+          "title": {
+            "type": "string",
+            "description": "内容标题",
+            "maxLength": 200
+          },
+          "script": {
+            "type": "string",
+            "description": "脚本/文案（AI 生成内容也留档，便于复盘与合规追溯）"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "DOUYIN",
+              "XIAOHONGSHU",
+              "BILIBILI",
+              "WECHAT_CHANNEL",
+              "KUAISHOU",
+              "WEIBO",
+              "TIKTOK",
+              "YOUTUBE",
+              "INSTAGRAM"
+            ],
+            "description": "发布平台"
+          },
+          "durationSec": {
+            "type": "number",
+            "description": "时长（秒）",
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "计划发布时间（ISO 8601）"
+          },
+          "aiTaskId": {
+            "type": "string",
+            "description": "关联的 AI 任务 ID（脚本生成/合规预检）"
+          },
+          "complianceScore": {
+            "type": "number",
+            "description": "AI 合规预检分 0-100（合规预检回写用）",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "complianceFlags": {
+            "description": "合规风险项 [{ level, category, snippet, suggestion }]，由 AI 预检回写",
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "ReviewContentDto": {
+        "type": "object",
+        "properties": {
+          "approved": {
+            "type": "boolean",
+            "description": "审核是否通过"
+          },
+          "note": {
+            "type": "string",
+            "description": "审核备注（通过/驳回都建议填写）",
+            "maxLength": 2000
+          },
+          "rejectReason": {
+            "type": "string",
+            "description": "驳回原因（approved=false 时必填，会回显给内容团队）",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "approved"
+        ]
+      },
+      "PublishContentDto": {
+        "type": "object",
+        "properties": {
+          "platformContentId": {
+            "type": "string",
+            "description": "平台侧内容 ID，发布后回填用于关联采集数据",
+            "maxLength": 128
+          },
+          "publishedUrl": {
+            "type": "string",
+            "description": "发布链接",
+            "maxLength": 512
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "实际发布时间（不传取当前时间，用于补录历史内容）"
+          }
+        }
+      },
+      "GenerateSettlementDto": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "description": "账期（YYYY-MM）。与 periodStart/periodEnd 二选一",
+            "example": "2026-01"
+          },
+          "periodStart": {
+            "type": "string",
+            "description": "自定义账期开始（ISO 日期）"
+          },
+          "periodEnd": {
+            "type": "string",
+            "description": "自定义账期结束（ISO 日期）"
+          },
+          "creatorIds": {
+            "description": "仅生成指定达人的结算单（不传则全量扫描）",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AdjustSettlementDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "string",
+            "description": "调整金额（元，字符串以保精度），正数为补款、负数为扣款",
+            "example": "-120.00"
+          },
+          "reason": {
+            "type": "string",
+            "description": "调整原因（必填，写入结算单与审计日志）",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "amount",
+          "reason"
+        ]
+      },
+      "PaySettlementDto": {
+        "type": "object",
+        "properties": {
+          "paymentVoucherUrl": {
+            "type": "string",
+            "description": "打款凭证地址（银行回单/截图）"
+          }
+        }
+      },
+      "DisputeSettlementDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "争议原因",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "VoidSettlementDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "作废原因",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "登录邮箱（全局唯一）",
+            "maxLength": 128
+          },
+          "name": {
+            "type": "string",
+            "description": "员工姓名",
+            "maxLength": 64
+          },
+          "password": {
+            "type": "string",
+            "description": "初始密码。不传则由服务端生成随机初始密码（响应中返回一次）。密码强度：≥10 位且含大小写/数字/符号中的至少三类",
+            "minLength": 10,
+            "maxLength": 72
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "SUPER_ADMIN",
+              "OPERATIONS",
+              "BD",
+              "CONTENT",
+              "FINANCE",
+              "AUDITOR"
+            ],
+            "description": "角色"
+          },
+          "teamId": {
+            "type": "string",
+            "description": "所属团队 ID"
+          },
+          "phone": {
+            "type": "string",
+            "description": "手机号"
+          }
+        },
+        "required": [
+          "email",
+          "name",
+          "role"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "员工姓名"
+          },
+          "phone": {
+            "type": "string",
+            "description": "手机号"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "description": "头像地址"
+          },
+          "teamId": {
+            "type": "string",
+            "description": "所属团队 ID，传 null 表示移出团队"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ],
+            "description": "账号状态"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "SUPER_ADMIN",
+              "OPERATIONS",
+              "BD",
+              "CONTENT",
+              "FINANCE",
+              "AUDITOR"
+            ],
+            "description": "角色。禁止通过本接口修改自己的角色（防呆：避免管理员把自己降权后无人能管理系统）"
+          }
+        }
+      },
+      "ChangeUserStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ],
+            "description": "目标状态"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UpdateUserPermissionsDto": {
+        "type": "object",
+        "properties": {
+          "permissionOverrides": {
+            "description": "权限覆盖项：合法权限码表示额外授予，\"-\" 前缀表示从角色默认权限中撤销（撤销优先于授予）。非法项会被整体拒绝并列明。",
+            "example": [
+              "creator:export",
+              "-settlement:export"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "permissionOverrides"
+        ]
+      }
+    }
+  }
+}

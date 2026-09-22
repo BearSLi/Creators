@@ -1,0 +1,826 @@
+// ============================================================================
+// CreatorOps 数据模型 (PostgreSQL)
+// ----------------------------------------------------------------------------
+// 设计原则：
+// 1) 金额一律用 Decimal(18,2)，绝不用浮点；比率为「基点(bp, 1bp = 0.01%)」整数，
+//    避免数据库层面出现 0.1+0.2 类精度问题，结算口径可审计、可复算。
+// 2) 全表软删除（deletedAt）+ 审计字段（createdBy/updatedBy），业务数据永不物理删除。
+// 3) 所有跨表查询路径都有显式索引，达人库/结算列表按业务最常用筛选维度建复合索引。
+// 4) 枚举值直接落库为字符串，便于 DBA 排查与报表 SQL 直读。
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// 枚举
+// ---------------------------------------------------------------------------
+
+/// 员工角色。权限点绑定在角色上，见 src/modules/auth/permissions.ts
+enum UserRole {
+  SUPER_ADMIN // 系统管理员：全部权限 + 系统配置
+  OPERATIONS // 运营：达人运营、内容排期、数据盯盘
+  BD // 商务：品牌/客户线，负责合同签署
+  CONTENT // 内容：选题、脚本、成片交付
+  FINANCE // 财务：结算单审核与付款
+  AUDITOR // 只读审计：可看全部数据，不可写
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+/// 达人合作生命周期状态机，流转规则见 src/modules/creators/creator-status.machine.ts
+enum CreatorStatus {
+  LEAD // 线索：仅在库，未建联
+  CONTACTING // 建联中
+  EVALUATING // 试稿/能力评估
+  SIGNED // 已签约
+  ACTIVE // 合作中（在产出）
+  PAUSED // 暂停合作
+  TERMINATED // 解约
+  BLACKLIST // 风险拉黑
+}
+
+/// 达人分级，影响资源倾斜与结算优先级
+enum CreatorTier {
+  S
+  A
+  B
+  C
+  D
+}
+
+enum Platform {
+  DOUYIN
+  XIAOHONGSHU
+  BILIBILI
+  WECHAT_CHANNEL
+  KUAISHOU
+  WEIBO
+  TIKTOK
+  YOUTUBE
+  INSTAGRAM
+}
+
+/// 内容形态。聚猩智媒以短剧/剧情内容为核心产能，故单列 SHORT_DRAMA
+enum ContentVertical {
+  SHORT_DRAMA // 短剧
+  LIFESTYLE // 生活
+  BEAUTY // 美妆
+  GAMING // 游戏
+  FOOD // 美食
+  TECH // 科技数码
+  KNOWLEDGE // 知识科普
+  FASHION // 时尚
+  FITNESS // 健身
+  OTHER
+}
+
+/// 账号数据采集方式，决定数据可信度（用于结算争议时的证据链）
+/// MOCK 单列的原因：仿真数据与「人工填写」的可信度完全不同，
+/// 若共用 MANUAL 会让看板和结算无法区分「真实采集」与「联调数据」。
+enum DataSourceType {
+  API_OFFICIAL // 平台官方开放接口
+  THIRD_PARTY // 第三方数据服务
+  SCREENSHOT // 人工截图录入
+  MANUAL // 人工填写
+  MOCK // 仿真数据（未接入真实平台时使用，仅限开发/演示）
+}
+
+enum ContractStatus {
+  DRAFT
+  PENDING_REVIEW // 待法务/负责人审核
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+/// 结算模式
+enum SettlementMode {
+  REVENUE_SHARE // 流水分成
+  FIXED_FEE // 一口价
+  HYBRID // 保底 + 分成
+  CPA // 按效果付费（下载/注册/线索）
+}
+
+enum ProjectStatus {
+  DRAFT
+  SCHEDULED // 已排期
+  IN_PRODUCTION // 拍摄制作中
+  IN_REVIEW // 审核中（含平台合规审核）
+  PUBLISHED // 已发布
+  COMPLETED // 已结项
+  CANCELED
+}
+
+enum ContentStatus {
+  IDEA
+  SCRIPTING
+  SHOOTING
+  EDITING
+  INTERNAL_REVIEW
+  PLATFORM_REVIEW
+  PUBLISHED
+  REJECTED
+  OFFLINE
+}
+
+/// 结算单状态机：DRAFT→PENDING→APPROVED→PAID，任意态可 DISPUTED
+enum SettlementStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  DISPUTED
+  VOID
+}
+
+enum AiTaskType {
+  SCRIPT_GENERATE // 脚本生成
+  TITLE_OPTIMIZE // 标题/封面文案优化
+  CREATOR_MATCH // 达人与品牌需求匹配
+  COMMENT_INSIGHT // 评论洞察
+  COMPLIANCE_CHECK // 内容合规预检
+  SETTLEMENT_ANOMALY // 结算异常解释
+  DAILY_BRIEF // 运营日报摘要
+}
+
+enum AiTaskStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  FALLBACK_USED // 主模型失败，已用降级模型完成
+  REJECTED // 输入未通过安全/成本校验，未调用模型
+}
+
+enum NotificationType {
+  CONTRACT_EXPIRING
+  SETTLEMENT_DUE
+  CONTENT_REVIEW
+  ANOMALY_ALERT
+  AI_TASK_DONE
+  SYSTEM
+}
+
+// ---------------------------------------------------------------------------
+// 组织与账号
+// ---------------------------------------------------------------------------
+
+model Team {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(64)
+  code      String   @unique @db.VarChar(32)
+  parentId  String?  @db.Uuid
+  parent    Team?    @relation("TeamTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Team[]   @relation("TeamTree")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  creators Creator[]
+
+  @@index([parentId])
+  @@map("teams")
+}
+
+model User {
+  id                  String     @id @default(uuid()) @db.Uuid
+  email               String     @unique @db.VarChar(128)
+  phone               String?    @unique @db.VarChar(32)
+  name                String     @db.VarChar(64)
+  passwordHash        String     @db.VarChar(128)
+  role                UserRole
+  status              UserStatus @default(ACTIVE)
+  avatarUrl           String?    @db.VarChar(512)
+  teamId              String?    @db.Uuid
+  team                Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  /// 覆盖角色默认权限点（授权）与撤销（-前缀），见 permissions.ts#resolvePermissions
+  permissionOverrides String[]   @default([])
+  lastLoginAt         DateTime?
+  lastLoginIp         String?    @db.VarChar(64)
+  failedLoginCount    Int        @default(0)
+  lockedUntil         DateTime?
+  /// 密码最后修改时间，用于「密码过期提醒」与强制重新登录判定
+  passwordUpdatedAt   DateTime   @default(now())
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  deletedAt           DateTime?
+
+  refreshTokens       RefreshToken[]
+  createdCreators     Creator[]      @relation("CreatorCreatedBy")
+  ownedCreators       Creator[]      @relation("CreatorOwner")
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  aiTasks             AiTask[]
+  approvedSettlements Settlement[]   @relation("SettlementApprover")
+  reviewedContents    Content[]      @relation("ContentReviewer")
+  reviewedContracts   Contract[]     @relation("ContractReviewer")
+
+  @@index([role, status])
+  @@index([teamId])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model RefreshToken {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @db.Uuid
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 只存哈希，库被拖库也无法直接复用 token
+  tokenHash         String    @unique @db.VarChar(128)
+  /// 同一登录会话（设备）的族标识，用于检测 refresh token 重放
+  familyId          String    @db.Uuid
+  userAgent         String?   @db.VarChar(256)
+  ip                String?   @db.VarChar(64)
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?   @db.Uuid
+  createdAt         DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// 达人主数据
+// ---------------------------------------------------------------------------
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique @db.VarChar(32)
+  category  String   @db.VarChar(32)
+  color     String?  @db.VarChar(16)
+  createdAt DateTime @default(now())
+
+  creators CreatorTag[]
+
+  @@index([category])
+  @@map("tags")
+}
+
+model Creator {
+  id              String            @id @default(uuid()) @db.Uuid
+  /// 对外业务编号，如 CR-2024-00123，用于合同/结算单引用
+  code            String            @unique @db.VarChar(32)
+  name            String            @db.VarChar(64)
+  realName        String?           @db.VarChar(64)
+  /// 证件号加密存储（AES-256-GCM），展示时脱敏
+  idCardEncrypted String?           @db.VarChar(512)
+  phone           String?           @db.VarChar(32)
+  wechat          String?           @db.VarChar(64)
+  email           String?           @db.VarChar(128)
+  city            String?           @db.VarChar(32)
+  status          CreatorStatus     @default(LEAD)
+  tier            CreatorTier       @default(C)
+  verticals       ContentVertical[] @default([])
+  /// 内容风格/人设标签，用于 AI 匹配
+  styleTags       String[]          @default([])
+  /// 结构化档期与合作偏好
+  availability    Json?
+  /// 与机构的关系：MCN 全约 / 商务约 / 独立
+  agencyType      String?           @db.VarChar(32)
+  agencyName      String?           @db.VarChar(128)
+  /// 招募来源渠道，用于渠道 ROI 分析
+  sourceChannel   String?           @db.VarChar(64)
+  score           Int               @default(60) // 综合评估分 0-100，由评估维度加权得出
+  riskLevel       String            @default("LOW") @db.VarChar(16)
+  remark          String?           @db.Text
+  ownerId         String?           @db.Uuid
+  owner           User?             @relation("CreatorOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  teamId          String?           @db.Uuid
+  team            Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdById     String?           @db.Uuid
+  createdBy       User?             @relation("CreatorCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  signedAt        DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+
+  accounts        PlatformAccount[]
+  contracts       Contract[]
+  projects        Project[]
+  contents        Content[]
+  settlementItems SettlementItem[]
+  /// 结算单反查关系：Settlement.creator 的对端。缺了它 Prisma 会报
+  /// 「The relation field `creator` on model `Settlement` is missing an opposite relation field」。
+  settlements     Settlement[]
+  tags            CreatorTag[]
+  aiTasks         AiTask[]
+
+  @@index([status, tier])
+  @@index([ownerId])
+  @@index([deletedAt, createdAt])
+  // 达人库最常见检索：按平台账号昵称/达人名模糊搜 + 状态过滤
+  @@index([name])
+  @@map("creators")
+}
+
+model CreatorTag {
+  creatorId String   @db.Uuid
+  tagId     String   @db.Uuid
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([creatorId, tagId])
+  @@index([tagId])
+  @@map("creator_tags")
+}
+
+/// 达人在各平台的账号矩阵（一人多号、一号多平台）
+model PlatformAccount {
+  id               String         @id @default(uuid()) @db.Uuid
+  creatorId        String         @db.Uuid
+  creator          Creator        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  platform         Platform
+  nickname         String         @db.VarChar(128)
+  /// 平台内唯一 ID（抖音 sec_uid / 小红书 user_id 等）
+  platformUid      String         @db.VarChar(128)
+  profileUrl       String?        @db.VarChar(512)
+  homeUrl          String?        @db.VarChar(512)
+  followerCount    Int            @default(0)
+  followingCount   Int            @default(0)
+  totalLikes       BigInt         @default(0)
+  totalWorks       Int            @default(0)
+  avgPlayCount     Int            @default(0)
+  /// 近 30 天互动率，万分比存储（1250 = 12.50%）
+  engagementRateBp Int            @default(0)
+  /// 粉丝画像快照 { femaleRatio, ageDist, cityTop }
+  audienceProfile  Json?
+  dataSource       DataSourceType @default(MANUAL)
+  lastSyncedAt     DateTime?
+  syncError        String?        @db.VarChar(512)
+  isPrimary        Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+
+  metrics MetricsSnapshot[]
+
+  @@unique([platform, platformUid])
+  @@index([creatorId, isPrimary])
+  @@index([platform, followerCount])
+  @@map("platform_accounts")
+}
+
+/// 账号数据快照：按天采集，用于趋势与结算基准（结算以结算周期内快照为准）
+model MetricsSnapshot {
+  id               String          @id @default(uuid()) @db.Uuid
+  accountId        String          @db.Uuid
+  account          PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  capturedAt       DateTime
+  /// 采集归属日（本地时区 00:00），唯一约束保证同一账号同一天只有一条，重跑幂等
+  statDate         DateTime        @db.Date
+  followerCount    Int             @default(0)
+  followerDelta    Int             @default(0)
+  playCount        BigInt          @default(0)
+  likeCount        BigInt          @default(0)
+  commentCount     BigInt          @default(0)
+  shareCount       BigInt          @default(0)
+  collectCount     BigInt          @default(0)
+  engagementRateBp Int             @default(0)
+  /// 电商/分成口径收入（分），结算引擎的输入之一
+  revenueCents     BigInt          @default(0)
+  rawPayload       Json?
+  dataSource       DataSourceType  @default(MANUAL)
+  createdAt        DateTime        @default(now())
+
+  @@unique([accountId, statDate])
+  @@index([statDate])
+  @@map("metrics_snapshots")
+}
+
+// ---------------------------------------------------------------------------
+// 品牌 / 客户
+// ---------------------------------------------------------------------------
+
+model Brand {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String    @unique @db.VarChar(128)
+  industry        String?   @db.VarChar(64)
+  contactName     String?   @db.VarChar(64)
+  contactPhone    String?   @db.VarChar(32)
+  /// 客户等级，影响报价策略与账期
+  level           String    @default("B") @db.VarChar(8)
+  /// 默认账期天数，合同可覆盖
+  paymentTermDays Int       @default(30)
+  invoiceTitle    String?   @db.VarChar(200)
+  taxNo           String?   @db.VarChar(64)
+  remark          String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  contracts Contract[]
+  projects  Project[]
+
+  @@index([deletedAt])
+  @@map("brands")
+}
+
+// ---------------------------------------------------------------------------
+// 合同（达人 × 品牌 × 结算规则的法律载体）
+// ---------------------------------------------------------------------------
+
+model Contract {
+  id             String         @id @default(uuid()) @db.Uuid
+  code           String         @unique @db.VarChar(32)
+  title          String         @db.VarChar(200)
+  creatorId      String         @db.Uuid
+  creator        Creator        @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  brandId        String?        @db.Uuid
+  brand          Brand?         @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  status         ContractStatus @default(DRAFT)
+  settlementMode SettlementMode @default(REVENUE_SHARE)
+
+  // ---- 金额与分成（基点整数，见文件头设计原则）----
+  currency      String  @default("CNY") @db.VarChar(8)
+  /// 保底/一口价金额
+  fixedFee      Decimal @default(0) @db.Decimal(18, 2)
+  /// 平台服务费率 bp
+  platformFeeBp Int     @default(1000)
+  /// MCN/公司分成率 bp（从扣除平台费后的净额中提取）
+  agencyShareBp Int     @default(3000)
+  /// 达人分成率 bp（净额中达人所占）
+  talentShareBp Int     @default(7000)
+  /// 代扣个税率 bp（按当地政策，可配置）
+  taxWithholdBp Int     @default(600)
+  /// 效果付费单价（元/条 或 元/线索），CPA 模式使用
+  cpaUnitPrice  Decimal @default(0) @db.Decimal(18, 2)
+  /// 阶梯分成规则 [{ from, to, talentShareBp }]，命中后覆盖 talentShareBp
+  tieredShares  Json?
+
+  // ---- 期限与商务条款 ----
+  signedAt         DateTime?
+  effectiveFrom    DateTime
+  effectiveTo      DateTime
+  /// 独家条款：签约期内不得接同类竞品
+  exclusivity      Boolean   @default(false)
+  exclusivityScope String?   @db.VarChar(200)
+  /// 内容交付要求：条数/平台/形式
+  deliverableSpec  Json?
+  /// 违约责任摘要
+  breachClause     String?   @db.Text
+  attachmentUrls   String[]  @default([])
+
+  // ---- 审批流 ----
+  reviewNote   String?   @db.Text
+  reviewedById String?   @db.Uuid
+  /// 审批人关联。仅有裸 reviewedById 时，合同详情「由谁审批」无法 include，
+  /// 类型检查会报 Property 'reviewedBy' does not exist。
+  reviewedBy   User?     @relation("ContractReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  createdById  String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  projects        Project[]
+  settlementItems SettlementItem[]
+
+  @@index([creatorId, status])
+  @@index([status, effectiveTo])
+  @@index([brandId])
+  @@index([deletedAt])
+  @@map("contracts")
+}
+
+// ---------------------------------------------------------------------------
+// 内容项目与内容
+// ---------------------------------------------------------------------------
+
+model Project {
+  id          String          @id @default(uuid()) @db.Uuid
+  /// 项目编号，如 PJ-2026-000012
+  code        String          @unique @db.VarChar(32)
+  name        String          @db.VarChar(200)
+  brandId     String?         @db.Uuid
+  brand       Brand?          @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  contractId  String?         @db.Uuid
+  contract    Contract?       @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  creatorId   String?         @db.Uuid
+  creator     Creator?        @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  status      ProjectStatus   @default(DRAFT)
+  vertical    ContentVertical @default(SHORT_DRAMA)
+  /// 项目预算与已发生成本（元），用于毛利看板
+  budget      Decimal         @default(0) @db.Decimal(18, 2)
+  actualCost  Decimal         @default(0) @db.Decimal(18, 2)
+  ownerId     String?         @db.Uuid
+  /// 归属团队，用于数据范围过滤（商务/运营按团队收敛）。
+  /// 独立冗余而不是经 contract 关联取，是因为数据范围过滤必须能直接进 where 条件，
+  /// 否则每个列表查询都要 join，且漏掉时会出现越权。
+  teamId      String?         @db.Uuid
+  startDate   DateTime?
+  dueDate     DateTime?
+  completedAt DateTime?
+  brief       String?         @db.Text
+  /// 取消/变更说明。项目无状态历史表，取消原因在此留痕（配合审计日志）
+  remark      String?         @db.Text
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  contents Content[]
+
+  @@index([status, dueDate])
+  @@index([creatorId])
+  @@index([brandId])
+  @@index([ownerId])
+  @@index([teamId])
+  @@index([deletedAt])
+  @@map("projects")
+}
+
+model Content {
+  id                String        @id @default(uuid()) @db.Uuid
+  /// 内容编号，如 CN-2026-000123。可空原因：手工补录/历史迁移的数据可能没有编号，
+  /// 强制非空会让这类数据无法入库；新数据由 CodeGeneratorService 统一分配。
+  code              String?       @unique @db.VarChar(32)
+  projectId         String?       @db.Uuid
+  project           Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creatorId         String        @db.Uuid
+  creator           Creator       @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  accountId         String?       @db.Uuid
+  title             String        @db.VarChar(200)
+  /// 脚本/AI 生成内容留档，用于复盘与合规追溯
+  script            String?       @db.Text
+  aiTaskId          String?       @db.Uuid
+  platform          Platform
+  status            ContentStatus @default(IDEA)
+  /// 平台侧内容 ID，发布后回填，用于关联采集数据
+  platformContentId String?       @db.VarChar(128)
+  publishedUrl      String?       @db.VarChar(512)
+  coverUrl          String?       @db.VarChar(512)
+  durationSec       Int           @default(0)
+  scheduledAt       DateTime?
+  publishedAt       DateTime?
+
+  // ---- 效果数据（发布后由采集任务回填）----
+  viewCount        BigInt    @default(0)
+  likeCount        BigInt    @default(0)
+  commentCount     BigInt    @default(0)
+  shareCount       BigInt    @default(0)
+  collectCount     BigInt    @default(0)
+  completionRateBp Int       @default(0)
+  /// 内容带来的收入（分），结算引擎按内容维度归因
+  revenueCents     BigInt    @default(0)
+  /// 单位成本效果，CPA 模式使用（线索数/下载数）
+  conversions      Int       @default(0)
+  metricsSyncedAt  DateTime?
+  /// 采集失败原因。内容维度的失败也要可见，否则「某条内容数据一直不更新」
+  /// 只能靠翻日志排查（账号维度已有 syncError，内容维度同样需要）
+  syncError        String?   @db.VarChar(512)
+
+  // ---- 合规与审核 ----
+  complianceScore Int? // AI 合规预检分 0-100
+  complianceFlags Json? // [{ level, category, snippet, suggestion }]
+  reviewerId      String? @db.Uuid
+  reviewer        User?   @relation("ContentReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewNote      String? @db.Text
+  rejectReason    String? @db.VarChar(512)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  settlementItems SettlementItem[]
+
+  @@index([creatorId, status])
+  @@index([projectId])
+  @@index([platform, publishedAt])
+  @@index([status, scheduledAt])
+  @@index([deletedAt])
+  @@map("contents")
+}
+
+// ---------------------------------------------------------------------------
+// 结算
+// ---------------------------------------------------------------------------
+
+/// 结算单：一个达人 × 一个账期一张单，含多笔明细
+model Settlement {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(32)
+  creatorId   String           @db.Uuid
+  /// 达人关联。prisma generate 之前这里只声明了裸 creatorId，
+  /// 导致所有 `where: { creator: ... }`（数据范围过滤）与
+  /// `include: { creator: ... }` 都无法编译 —— 生成客户端时才暴露出来。
+  creator     Creator          @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  /// 账期：periodStart ~ periodEnd 闭区间
+  periodStart DateTime         @db.Date
+  periodEnd   DateTime         @db.Date
+  status      SettlementStatus @default(DRAFT)
+  currency    String           @default("CNY") @db.VarChar(8)
+
+  grossAmount      Decimal @default(0) @db.Decimal(18, 2)
+  platformFee      Decimal @default(0) @db.Decimal(18, 2)
+  agencyShare      Decimal @default(0) @db.Decimal(18, 2)
+  talentGross      Decimal @default(0) @db.Decimal(18, 2)
+  taxWithheld      Decimal @default(0) @db.Decimal(18, 2)
+  netPayable       Decimal @default(0) @db.Decimal(18, 2)
+  /// 调整项（补款/扣款），正负均可，需填写原因
+  adjustmentAmount Decimal @default(0) @db.Decimal(18, 2)
+  adjustmentReason String? @db.Text
+
+  /// 计算链路留痕：每条明细的计算过程与所用规则快照，可复算
+  calculationTrace Json?
+
+  dueDate           DateTime? @db.Date
+  approvedById      String?   @db.Uuid
+  approvedBy        User?     @relation("SettlementApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt        DateTime?
+  paidAt            DateTime?
+  paymentVoucherUrl String?   @db.VarChar(512)
+  disputeReason     String?   @db.Text
+  remark            String?   @db.Text
+  createdById       String?   @db.Uuid
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  items SettlementItem[]
+
+  // 同一达人同一账期唯一，保证自动生成任务可重复执行而不重复出账
+  @@unique([creatorId, periodStart, periodEnd])
+  @@index([status, dueDate])
+  @@index([periodEnd])
+  @@index([deletedAt])
+  @@map("settlements")
+}
+
+/// 结算明细：按内容（或合同）逐笔归因，是财务对账的最小单元
+model SettlementItem {
+  id           String     @id @default(uuid()) @db.Uuid
+  settlementId String     @db.Uuid
+  settlement   Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  creatorId    String     @db.Uuid
+  creator      Creator    @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  contractId   String?    @db.Uuid
+  contract     Contract?  @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  contentId    String?    @db.Uuid
+  content      Content?   @relation(fields: [contentId], references: [id], onDelete: SetNull)
+
+  itemType      String  @default("REVENUE") @db.VarChar(32) // REVENUE | FIXED_FEE | CPA | BONUS | DEDUCTION
+  description   String  @db.VarChar(200)
+  grossAmount   Decimal @db.Decimal(18, 2)
+  platformFeeBp Int     @default(0)
+  platformFee   Decimal @default(0) @db.Decimal(18, 2)
+  agencyShareBp Int     @default(0)
+  agencyShare   Decimal @default(0) @db.Decimal(18, 2)
+  talentShareBp Int     @default(0)
+  talentGross   Decimal @default(0) @db.Decimal(18, 2)
+  taxWithholdBp Int     @default(0)
+  taxWithheld   Decimal @default(0) @db.Decimal(18, 2)
+  netPayable    Decimal @default(0) @db.Decimal(18, 2)
+
+  /// 幂等键：同一来源（内容/合同+类型+账期）只允许生成一条明细
+  idempotencyKey String   @unique @db.VarChar(200)
+  calculatedAt   DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([settlementId])
+  @@index([creatorId, calculatedAt])
+  @@index([contractId])
+  @@map("settlement_items")
+}
+
+// ---------------------------------------------------------------------------
+// AI 能力层
+// ---------------------------------------------------------------------------
+
+/// Prompt 模板版本化：业务改动可回滚，效果可对比（A/B）
+model PromptTemplate {
+  id                 String   @id @default(uuid()) @db.Uuid
+  key                String   @db.VarChar(64) // 如 script.generate.short_drama
+  version            Int      @default(1)
+  name               String   @db.VarChar(128)
+  description        String?  @db.Text
+  /// 系统提示词，含角色设定与硬性约束
+  systemPrompt       String   @db.Text
+  /// 用户提示词模板，{{variable}} 占位
+  userPromptTemplate String   @db.Text
+  /// 变量声明 [{ name, required, description, maxLength }]
+  variables          Json
+  /// 期望输出 JSON Schema，用于结构化输出校验
+  outputSchema       Json?
+  model              String   @db.VarChar(64)
+  temperature        Decimal  @default(0.7) @db.Decimal(3, 2)
+  maxTokens          Int      @default(2048)
+  isActive           Boolean  @default(true)
+  /// 灰度流量比例 0-100
+  rolloutPercent     Int      @default(100)
+  createdById        String?  @db.Uuid
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tasks AiTask[]
+
+  @@unique([key, version])
+  @@index([key, isActive])
+  @@map("prompt_templates")
+}
+
+/// AI 任务：所有模型调用都落库，含输入输出、token、成本、耗时，用于可观测与成本治理
+model AiTask {
+  id               String          @id @default(uuid()) @db.Uuid
+  taskType         AiTaskType
+  status           AiTaskStatus    @default(QUEUED)
+  /// 业务关联，便于从达人/内容页面反查 AI 历史
+  creatorId        String?         @db.Uuid
+  creator          Creator?        @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  input            Json
+  output           Json?
+  /// 渲染后的最终 prompt，便于复现问题
+  renderedPrompt   String?         @db.Text
+  provider         String?         @db.VarChar(32)
+  model            String?         @db.VarChar(64)
+  templateId       String?         @db.Uuid
+  template         PromptTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  promptTokens     Int             @default(0)
+  completionTokens Int             @default(0)
+  totalTokens      Int             @default(0)
+  costCents        Int             @default(0)
+  latencyMs        Int             @default(0)
+  retryCount       Int             @default(0)
+  fallbackReason   String?         @db.VarChar(512)
+  errorCode        String?         @db.VarChar(64)
+  errorMessage     String?         @db.Text
+  /// 人工反馈：1 采纳 / 0 未评 / -1 拒绝，用于效果统计与 Prompt 迭代
+  humanFeedback    Int             @default(0)
+  feedbackNote     String?         @db.Text
+  requestedById    String?         @db.Uuid
+  requestedBy      User?           @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  /// 幂等键：防止前端重复点击造成重复扣费
+  idempotencyKey   String?         @unique @db.VarChar(200)
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime        @default(now())
+
+  @@index([taskType, status])
+  @@index([createdAt])
+  @@index([creatorId])
+  @@index([requestedById, createdAt])
+  @@map("ai_tasks")
+}
+
+// ---------------------------------------------------------------------------
+// 审计与通知
+// ---------------------------------------------------------------------------
+
+/// 审计日志：写操作全覆盖，含变更前后快照、IP、UA，满足内部合规与追责
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @db.Uuid
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// 冗余存操作人快照，用户被删也能追溯
+  userName     String?  @db.VarChar(64)
+  action       String   @db.VarChar(32) // CREATE | UPDATE | DELETE | LOGIN | EXPORT | APPROVE ...
+  resource     String   @db.VarChar(64) // creator | contract | settlement ...
+  resourceId   String?  @db.VarChar(64)
+  summary      String   @db.VarChar(512)
+  before       Json?
+  after        Json?
+  ip           String?  @db.VarChar(64)
+  userAgent    String?  @db.VarChar(256)
+  requestId    String?  @db.VarChar(64)
+  durationMs   Int      @default(0)
+  success      Boolean  @default(true)
+  errorMessage String?  @db.VarChar(512)
+  createdAt    DateTime @default(now())
+
+  @@index([resource, resourceId, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String           @db.VarChar(200)
+  content   String?          @db.Text
+  /// 点击跳转的前端路由
+  link      String?          @db.VarChar(512)
+  /// 业务幂等键：同一业务事件不重复提醒
+  dedupeKey String?          @db.VarChar(200)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}

@@ -1,0 +1,29 @@
+# 换行符统一为 LF
+# ----------------------------------------------------------------------------
+# 为什么需要：这是一个 Windows 上开发、但可能被 Linux/macOS 或 CI（ubuntu-latest）
+# 检出的仓库。Git for Windows 默认 core.autocrlf=true，会在检出时把 LF 转成 CRLF，
+# 提交时再转回来；一旦某台机器的设置不同，就会出现「整个文件都改了」的假 diff，
+# 淹没真实改动，也让 `git blame` 失效。
+#
+# 现状：仓库内所有文件本来就是 LF（已校验），这里只是把这个事实固定下来，
+# 避免以后被不同机器的 Git 配置改写。
+* text=auto eol=lf
+
+# 二进制文件不做换行转换（否则会损坏文件）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.xlsx binary
+*.zip binary
+
+# lockfile 由包管理器生成，不要做任何文本处理（否则 pnpm 完整性校验会失败）
+pnpm-lock.yaml -text -diff
+
+# 导出产物：机器生成、体量大，默认折叠在 diff 里减少噪声
+docs/openapi.json linguist-generated=true -diff

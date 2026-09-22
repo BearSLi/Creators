@@ -1,0 +1,16 @@
+# 构建上下文排除项（镜像构建只需要源码与清单，排除物能显著减小 context 传输量）
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+.git
+.github
+.vscode
+.idea
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+docs

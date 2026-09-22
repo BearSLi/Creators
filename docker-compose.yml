@@ -1,0 +1,94 @@
+# CreatorOps 本地依赖编排：PostgreSQL + Redis
+# 用法：
+#   docker compose up -d          启动依赖
+#   docker compose logs -f api    查看某服务日志
+#   docker compose --profile full up -d --build   连同 api/web 一起容器化运行
+name: creatorops
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: creatorops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: creatorops
+      POSTGRES_PASSWORD: creatorops
+      POSTGRES_DB: creatorops
+      # 中文排序与大小写行为显式声明，避免不同宿主机默认 locale 不一致
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U creatorops -d creatorops']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: creatorops-redis
+    restart: unless-stopped
+    # appendonly 保证队列任务在重启后不丢
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    profiles: ['full']
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: creatorops-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 3100
+      DATABASE_URL: postgresql://creatorops:creatorops@postgres:5432/creatorops?schema=public
+      REDIS_URL: redis://redis:6379/0
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-please-override-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-please-override-me-too}
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_FALLBACK_PROVIDER: mock
+      COLLECTOR_MODE: ${COLLECTOR_MODE:-mock}
+      LOG_PRETTY: 'false'
+    ports:
+      - '3100:3100'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3100/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  web:
+    profiles: ['full']
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    container_name: creatorops-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - '8080:80'
+
+volumes:
+  pgdata:
+  redisdata:

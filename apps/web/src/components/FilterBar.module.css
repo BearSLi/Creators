@@ -1,0 +1,82 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--card-padding);
+  margin-bottom: var(--space-4);
+}
+
+.fields {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* 多选组占满一行：chip 数量多，挤在半行里换行很难看 */
+.fieldWide {
+  flex: 1 1 100%;
+}
+
+.label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.control {
+  height: 32px;
+}
+
+.searchWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--space-2);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-md);
+  pointer-events: none;
+}
+
+.search {
+  width: 240px;
+  padding-left: 24px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+  flex-wrap: wrap;
+}
+
+.resultHint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.resultHint strong {
+  font-family: var(--font-family-mono);
+  color: var(--color-text-primary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}

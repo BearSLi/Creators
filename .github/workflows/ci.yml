@@ -1,0 +1,228 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# 同一分支的重复推送取消上一次未完成的运行，节省 CI 配额
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 第一道关：静态校验（最快，无需数据库）
+  # 目的：让「模型名写错、枚举拼错、权限码配错」这类问题在 1 分钟内暴露，
+  # 而不是等到集成测试阶段。
+  # ---------------------------------------------------------------------------
+  static-checks:
+    name: 静态校验（Prisma 使用一致性 + 枚举一致性 + 类型检查 + Lint）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 生成 Prisma 客户端
+        run: pnpm --filter @creatorops/api prisma:generate
+
+      # 顺序刻意如此：先跑不依赖生成产物的校验，再跑类型检查。
+      # 这样即使 prisma generate 失败，也能先给出「模型/枚举层面」的结论。
+      - name: Prisma 使用一致性校验
+        run: pnpm --filter @creatorops/api check:prisma-usage
+
+      # 枚举一致性校验：把 apps/web/src/api/types.ts 里手写的枚举与
+      # apps/api/prisma/schema.prisma 的 enum 逐个比对。
+      #
+      # 为什么单列一关：这类漂移**TypeScript 完全查不出来** ——
+      # 前端枚举声明和用它的页面都在前端这一侧，`status === 'PENDING'`
+      # 两边都取自同一个手写联合类型，永远自洽。只有拿后端 schema 当事实来源
+      # 才能发现「前端多了一个不存在的状态」。历史上这一类 bug 一次性出现了 15 处。
+      #
+      # 同时也拦「页面里直接写的裸枚举字面量写错」（如 'CANCELLED' vs 'CANCELED'）。
+      - name: 枚举一致性自检（校验脚本本身有效）
+        run: pnpm enum:selftest
+
+      - name: 前后端枚举一致性校验
+        run: pnpm enum:check
+
+      # 前后端契约校验：导出后端 OpenAPI 规范并与前端手写类型逐字段比对。
+      # 这一关专门拦「前端提交了后端 DTO 里没有的字段」这类漂移 ——
+      # 它会表现为用户点提交后看到 400「property X should not exist」，
+      # 而类型检查（两边各自自洽）与单元测试（不经过 HTTP）都发现不了。
+      - name: 前后端契约校验
+        run: pnpm openapi:export && pnpm openapi:check
+
+      - name: 后端类型检查
+        run: pnpm --filter @creatorops/api typecheck
+
+      - name: 前端类型检查
+        run: pnpm --filter @creatorops/web typecheck
+
+      - name: Lint
+        run: pnpm -r lint
+
+  # ---------------------------------------------------------------------------
+  # 第二道关：单元测试（含覆盖率阈值）
+  # 结算引擎与权限矩阵是资金与安全相关代码，覆盖率阈值在这里卡住。
+  # ---------------------------------------------------------------------------
+  unit-tests:
+    name: 单元测试（含覆盖率阈值）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 生成 Prisma 客户端
+        run: pnpm --filter @creatorops/api prisma:generate
+
+      # 测试环境用假配置即可：env.ts 只做格式与强度校验，不连库
+      - name: 运行单元测试与覆盖率
+        run: pnpm --filter @creatorops/api test:cov
+        env:
+          NODE_ENV: test
+          BCRYPT_ROUNDS: '4'
+          DATABASE_URL: postgresql://creatorops:creatorops@localhost:5432/creatorops?schema=public
+          JWT_ACCESS_SECRET: ci-only-access-secret-not-for-production-0123456789
+          JWT_REFRESH_SECRET: ci-only-refresh-secret-not-for-production-0123456789
+          AI_PROVIDER: mock
+          COLLECTOR_MODE: mock
+
+  # ---------------------------------------------------------------------------
+  # 第三道关：集成测试（真实 PostgreSQL + Redis）
+  # 覆盖「迁移能否在干净库上跑通」「演示数据是否自洽」这两件事——
+  # 这两件事恰恰是手工测试最容易漏、上线时最容易炸的地方。
+  # ---------------------------------------------------------------------------
+  integration-tests:
+    name: 集成测试（真实数据库 + e2e）
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: creatorops
+          POSTGRES_PASSWORD: creatorops
+          POSTGRES_DB: creatorops
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U creatorops -d creatorops"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://creatorops:creatorops@localhost:5432/creatorops?schema=public
+      REDIS_URL: redis://localhost:6379/0
+      JWT_ACCESS_SECRET: ci-only-access-secret-not-for-production-0123456789
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-not-for-production-0123456789
+      BCRYPT_ROUNDS: '4'
+      AI_PROVIDER: mock
+      COLLECTOR_MODE: mock
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 生成 Prisma 客户端
+        run: pnpm --filter @creatorops/api prisma:generate
+
+      # 用 migrate deploy 而不是 migrate dev：与生产一致的执行路径，
+      # 能验证「迁移文件本身是否完整」，而不是靠开发模式的 schema 漂移检测。
+      - name: 应用数据库迁移
+        run: pnpm --filter @creatorops/api prisma:deploy
+
+      - name: 写入演示数据（同时验证种子脚本可重复执行）
+        run: pnpm db:seed
+
+      - name: 再次执行种子脚本（验证幂等）
+        run: pnpm db:seed
+
+      - name: 端到端测试
+        run: pnpm test:e2e
+
+  # ---------------------------------------------------------------------------
+  # 第四道关：构建产物（前后端）
+  # 构建失败往往在本地被 watch 模式掩盖，这里显式验证产物可产出。
+  # ---------------------------------------------------------------------------
+  build:
+    name: 构建
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 生成 Prisma 客户端
+        run: pnpm --filter @creatorops/api prisma:generate
+
+      - name: 全量构建
+        run: pnpm build
+        env:
+          DATABASE_URL: postgresql://creatorops:creatorops@localhost:5432/creatorops?schema=public
+          JWT_ACCESS_SECRET: ci-only-access-secret-not-for-production-0123456789
+          JWT_REFRESH_SECRET: ci-only-refresh-secret-not-for-production-0123456789
+
+      - name: 上传前端产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+          retention-days: 7

@@ -1,0 +1,28 @@
+.money {
+  display: inline-block;
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  text-align: right;
+  white-space: nowrap;
+  color: var(--color-money);
+}
+
+.placeholder {
+  color: var(--color-text-disabled);
+}
+
+.negative {
+  color: var(--color-money-negative);
+}
+
+/* 大额高亮：财务在长列表里靠颜色快速定位，不做加粗以免整列都在"喊" */
+.large {
+  color: var(--color-money-strong);
+  font-weight: var(--font-weight-semibold);
+}
+
+.muted {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-regular);
+}

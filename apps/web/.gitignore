@@ -1,0 +1,23 @@
+node_modules
+dist
+dist-ssr
+coverage
+*.local
+.vite
+*.tsbuildinfo
+
+# 编辑器 / 系统
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+
+# 日志与本地环境变量（VITE_ 前缀变量会打进产物，禁止提交真实域名与密钥）
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.env
+.env.*
+!.env.example
